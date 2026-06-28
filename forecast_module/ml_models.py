@@ -139,8 +139,8 @@ def prepare_lagged_dataset(df, n_lags=3):
 
 def evaluate_models(df_supervised, features, target):
     """
-    Trains and validates multiple time-series architectures using TimeSeriesSplit (3 splits)
-    to perform hyperparameter grid tuning and prevent overfitting.
+    Trains and validates multiple time-series architectures using a fast train/validation split
+    to prevent overfitting while ensuring rapid execution on resource-constrained hosting (Render).
     Returns the selected optimized model with validation MAE/RMSE.
     """
     n_samples = len(df_supervised)
@@ -155,106 +155,48 @@ def evaluate_models(df_supervised, features, target):
     X = df_supervised[features]
     y = df_supervised[target]
     
-    # 3-Fold Time-Series Cross Validation
-    tscv = TimeSeriesSplit(n_splits=3)
-    
-    # Configure hyperparameter grids to search
-    rf_grid = [{"n_estimators": n, "max_depth": d} for n in [50, 100] for d in [5, 8]]
-    xgb_grid = [{"n_estimators": n, "learning_rate": lr} for n in [50, 100] for lr in [0.05, 0.1]]
+    # Simple 80/20 train/validation split for ultra-fast execution
+    split_idx = int(n_samples * 0.8)
+    X_train, X_val = X.iloc[:split_idx], X.iloc[split_idx:]
+    y_train, y_val = y.iloc[:split_idx], y.iloc[split_idx:]
     
     model_candidates = {}
     validation_maes = {}
     validation_rmses = {}
     
-    # 1. Evaluate Tuned Random Forest
+    # 1. Evaluate Random Forest
     try:
-        best_rf_mae = float("inf")
-        best_rf_model = None
-        for params in rf_grid:
-            cv_maes = []
-            cv_rmses = []
-            for train_idx, val_idx in tscv.split(X):
-                X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
-                y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-                
-                # Compute time-decay weights (more weight on recent observations)
-                n_train = len(y_train)
-                sample_weights = np.exp(np.linspace(-0.3, 0, n_train))
-                
-                rf = RandomForestRegressor(**params, random_state=42)
-                rf.fit(X_train, y_train, sample_weight=sample_weights)
-                preds = rf.predict(X_val)
-                cv_maes.append(mean_absolute_error(y_val, preds))
-                cv_rmses.append(mean_squared_error(y_val, preds) ** 0.5)
-                
-            mean_mae = float(np.mean(cv_maes))
-            if mean_mae < best_rf_mae:
-                best_rf_mae = mean_mae
-                best_rf_model = RandomForestRegressor(**params, random_state=42)
-                validation_rmses["Random Forest"] = float(np.mean(cv_rmses))
-                
-        # Fit final RF with time-decay weights
-        n_total = len(y)
-        total_weights = np.exp(np.linspace(-0.3, 0, n_total))
-        best_rf_model.fit(X, y, sample_weight=total_weights)
-        model_candidates["Random Forest"] = best_rf_model
-        validation_maes["Random Forest"] = best_rf_mae
+        rf = RandomForestRegressor(n_estimators=50, max_depth=6, random_state=42)
+        rf.fit(X_train, y_train)
+        preds = rf.predict(X_val)
+        validation_maes["Random Forest"] = float(mean_absolute_error(y_val, preds))
+        validation_rmses["Random Forest"] = float(mean_squared_error(y_val, preds) ** 0.5)
+        model_candidates["Random Forest"] = rf
     except Exception as e:
         print("Random Forest training failed:", str(e))
         
-    # 2. Evaluate Tuned XGBoost
+    # 2. Evaluate XGBoost / Gradient Boosting
     try:
-        best_xgb_mae = float("inf")
-        best_xgb_model = None
         xgb_class = xgb.XGBRegressor if HAS_XGB else GradientBoostingRegressor
-        
-        for params in xgb_grid:
-            cv_maes = []
-            cv_rmses = []
-            for train_idx, val_idx in tscv.split(X):
-                X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
-                y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-                
-                n_train = len(y_train)
-                sample_weights = np.exp(np.linspace(-0.3, 0, n_train))
-                
-                if HAS_XGB:
-                    inst = xgb_class(**params, random_state=42, objective="reg:squarederror")
-                else:
-                    inst = xgb_class(**params, random_state=42)
-                    
-                inst.fit(X_train, y_train, sample_weight=sample_weights)
-                preds = inst.predict(X_val)
-                cv_maes.append(mean_absolute_error(y_val, preds))
-                cv_rmses.append(mean_squared_error(y_val, preds) ** 0.5)
-                
-            mean_mae = float(np.mean(cv_maes))
-            if mean_mae < best_xgb_mae:
-                best_xgb_mae = mean_mae
-                best_xgb_model = xgb_class(**params, random_state=42)
-                validation_rmses["XGBoost"] = float(np.mean(cv_rmses))
-                
-        # Fit final XGB with time-decay weights
-        n_total = len(y)
-        total_weights = np.exp(np.linspace(-0.3, 0, n_total))
-        best_xgb_model.fit(X, y, sample_weight=total_weights)
-        model_candidates["XGBoost"] = best_xgb_model
-        validation_maes["XGBoost"] = best_xgb_mae
+        if HAS_XGB:
+            inst = xgb_class(n_estimators=50, learning_rate=0.1, random_state=42, objective="reg:squarederror")
+        else:
+            inst = xgb_class(n_estimators=50, learning_rate=0.1, random_state=42)
+            
+        inst.fit(X_train, y_train)
+        preds = inst.predict(X_val)
+        validation_maes["XGBoost"] = float(mean_absolute_error(y_val, preds))
+        validation_rmses["XGBoost"] = float(mean_squared_error(y_val, preds) ** 0.5)
+        model_candidates["XGBoost"] = inst
     except Exception as e:
         print("XGBoost/GBM training failed:", str(e))
     
     # 3. Evaluate Statistical Baselines (ARIMA & Prophet)
-    # Fit and score on final temporal split for baseline verification
-    split_idx = int(n_samples * 0.8)
-    train_df = df_supervised.iloc[:split_idx]
-    val_df = df_supervised.iloc[split_idx:]
-    y_val = val_df[target]
-    
     if HAS_STATSMODELS:
         try:
-            arima_model = ARIMA(train_df[target].values, order=(2, 1, 0))
+            arima_model = ARIMA(y_train.values, order=(2, 1, 0))
             arima_fit = arima_model.fit()
-            arima_preds = arima_fit.forecast(steps=len(val_df))
+            arima_preds = arima_fit.forecast(steps=len(X_val))
             model_candidates["ARIMA"] = arima_fit
             validation_maes["ARIMA"] = mean_absolute_error(y_val, arima_preds)
             validation_rmses["ARIMA"] = mean_squared_error(y_val, arima_preds) ** 0.5
@@ -264,8 +206,8 @@ def evaluate_models(df_supervised, features, target):
     if "ARIMA" not in model_candidates:
         try:
             ar_lin = HuberRegressor()
-            ar_lin.fit(X.iloc[:split_idx], y.iloc[:split_idx])
-            ar_preds = ar_lin.predict(X.iloc[split_idx:])
+            ar_lin.fit(X_train, y_train)
+            ar_preds = ar_lin.predict(X_val)
             model_candidates["ARIMA"] = ar_lin
             validation_maes["ARIMA"] = mean_absolute_error(y_val, ar_preds)
             validation_rmses["ARIMA"] = mean_squared_error(y_val, ar_preds) ** 0.5
@@ -274,10 +216,11 @@ def evaluate_models(df_supervised, features, target):
     
     if HAS_PROPHET:
         try:
+            train_df = df_supervised.iloc[:split_idx]
             prophet_df = train_df[["date", "depth"]].rename(columns={"date": "ds", "depth": "y"})
             prophet_model = Prophet(yearly_seasonality=True, weekly_seasonality=False, daily_seasonality=False)
             prophet_model.fit(prophet_df)
-            future = prophet_model.make_future_dataframe(periods=len(val_df))
+            future = prophet_model.make_future_dataframe(periods=len(X_val))
             forecast = prophet_model.predict(future).iloc[split_idx:]
             prophet_preds = forecast["yhat"].values
             model_candidates["Prophet"] = prophet_model
@@ -289,8 +232,8 @@ def evaluate_models(df_supervised, features, target):
     if "Prophet" not in model_candidates:
         try:
             trend_lin = LinearRegression()
-            trend_lin.fit(X.iloc[:split_idx], y.iloc[:split_idx])
-            trend_preds = trend_lin.predict(X.iloc[split_idx:])
+            trend_lin.fit(X_train, y_train)
+            trend_preds = trend_lin.predict(X_val)
             model_candidates["Prophet"] = trend_lin
             validation_maes["Prophet"] = mean_absolute_error(y_val, trend_preds)
             validation_rmses["Prophet"] = mean_squared_error(y_val, trend_preds) ** 0.5
@@ -299,9 +242,9 @@ def evaluate_models(df_supervised, features, target):
             
     # 4. Neural Network Models (LSTM/GRU MLP fallbacks)
     try:
-        mlp_lstm = MLPRegressor(hidden_layer_sizes=(32, 16), max_iter=200, random_state=42)
-        mlp_lstm.fit(X.iloc[:split_idx], y.iloc[:split_idx])
-        mlp_lstm_preds = mlp_lstm.predict(X.iloc[split_idx:])
+        mlp_lstm = MLPRegressor(hidden_layer_sizes=(16, 8), max_iter=150, random_state=42)
+        mlp_lstm.fit(X_train, y_train)
+        mlp_lstm_preds = mlp_lstm.predict(X_val)
         model_candidates["LSTM"] = mlp_lstm
         validation_maes["LSTM"] = mean_absolute_error(y_val, mlp_lstm_preds)
         validation_rmses["LSTM"] = mean_squared_error(y_val, mlp_lstm_preds) ** 0.5
@@ -322,42 +265,32 @@ def evaluate_models(df_supervised, features, target):
                 (model_candidates["XGBoost"], weight_xgb)
             ])
             
-            # Cross-validate the ensemble
-            cv_maes = []
-            cv_rmses = []
-            for train_idx, val_idx in tscv.split(X):
-                X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
-                y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
-                
-                rf_cv = RandomForestRegressor(**best_rf_model.get_params())
-                rf_cv.fit(X_train, y_train)
-                
-                xgb_cv = xgb_class(**best_xgb_model.get_params())
-                xgb_cv.fit(X_train, y_train)
-                
-                ens_cv = WeightedEnsembleRegressor([
-                    (rf_cv, weight_rf),
-                    (xgb_cv, weight_xgb)
-                ])
-                preds = ens_cv.predict(X_val)
-                cv_maes.append(mean_absolute_error(y_val, preds))
-                cv_rmses.append(mean_squared_error(y_val, preds) ** 0.5)
-                
-            validation_maes["Weighted Ensemble"] = float(np.mean(cv_maes))
-            validation_rmses["Weighted Ensemble"] = float(np.mean(cv_rmses))
+            # Cross-validate ensemble on the validation split
+            rf_cv = RandomForestRegressor(n_estimators=50, max_depth=6, random_state=42)
+            rf_cv.fit(X_train, y_train)
+            
+            xgb_cv = xgb_class(n_estimators=50, learning_rate=0.1, random_state=42)
+            xgb_cv.fit(X_train, y_train)
+            
+            ens_cv = WeightedEnsembleRegressor([
+                (rf_cv, weight_rf),
+                (xgb_cv, weight_xgb)
+            ])
+            preds = ens_cv.predict(X_val)
+            
+            validation_maes["Weighted Ensemble"] = float(mean_absolute_error(y_val, preds))
+            validation_rmses["Weighted Ensemble"] = float(mean_squared_error(y_val, preds) ** 0.5)
             model_candidates["Weighted Ensemble"] = ensemble_model
     except Exception:
         pass
         
     # Auto-Select Best model
     if not validation_maes:
-        # Extreme fallback to simple Linear Regression if all models failed
         try:
             lr = LinearRegression()
             lr.fit(X, y)
             return lr, "Linear Baseline", 0.1, 0.15
         except Exception:
-            # Absolute baseline (mean value)
             class MeanBaseline:
                 def __init__(self, val): self.val = val
                 def predict(self, X): return np.full(len(X), self.val)
@@ -368,14 +301,10 @@ def evaluate_models(df_supervised, features, target):
     best_mae = validation_maes[best_name]
     best_rmse = validation_rmses.get(best_name, 0.15)
     
+    # Fit final best model on the entire dataset
     if best_name in ["Random Forest", "XGBoost", "LSTM"]:
         try:
-            if best_name in ["Random Forest", "XGBoost"]:
-                n_total = len(y)
-                total_weights = np.exp(np.linspace(-0.3, 0, n_total))
-                best_model.fit(X, y, sample_weight=total_weights)
-            else:
-                best_model.fit(X, y)
+            best_model.fit(X, y)
         except Exception:
             pass
             
@@ -585,11 +514,15 @@ def generate_forecasts(district, station=None, horizons=["7d", "30d", "3m", "1y"
             input_row = pd.DataFrame([input_dict])[features]
             
             # Predict next step depth
-            if model_name in ["LSTM", "GRU"] and HAS_TF and not isinstance(best_model, MLPRegressor):
-                input_reshaped = np.reshape(input_row.values, (1, 1, input_row.shape[1]))
-                pred_depth = float(best_model.predict(input_reshaped)[0][0])
-            else:
-                pred_depth = float(best_model.predict(input_row)[0])
+            try:
+                if model_name in ["LSTM", "GRU"] and HAS_TF and not isinstance(best_model, MLPRegressor):
+                    input_reshaped = np.reshape(input_row.values, (1, 1, input_row.shape[1]))
+                    pred_depth = float(best_model.predict(input_reshaped)[0][0])
+                else:
+                    pred_depth = float(best_model.predict(input_row)[0])
+            except Exception:
+                # Safe fallback to the last observed depth if prediction fails
+                pred_depth = float(input_row["depth_lag_1"].values[0])
                 
             # Add bias correction if we fell back to district
             if station_fell_back:
