@@ -51,7 +51,9 @@ app.register_blueprint(forecast_bp)
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-USER_DB_PATH = "users.db"
+USER_DB_PATH = os.getenv("USER_DB_PATH", "users.db")
+if os.path.exists("/data") and os.path.isdir("/data"):
+    USER_DB_PATH = "/data/users.db"
 
 ALERT_DEPTH_THRESHOLD_M = float(os.getenv("ALERT_DEPTH_THRESHOLD_M", "5.0"))
 ALERT_COOLDOWN_MINUTES = int(os.getenv("ALERT_COOLDOWN_MINUTES", "30"))
@@ -1250,13 +1252,19 @@ def index():
     recommendations = None
     error = None
 
-    dates = []
-    depths = []
+    dwlr_data = []
     districts = sorted(df["district"].dropna().unique()) if not df.empty and "district" in df.columns else []
-    if not df.empty and {"sampling_date", "approx_depth"}.issubset(df.columns):
-        dwlr = df[["sampling_date", "approx_depth"]].dropna()
-        dates = dwlr["sampling_date"].dt.strftime("%Y-%m-%d").tolist()
-        depths = dwlr["approx_depth"].apply(parse_depth).fillna(0).tolist()
+    if not df.empty and {"district", "sampling_date", "approx_depth"}.issubset(df.columns):
+        dwlr = df[["district", "sampling_date", "approx_depth"]].dropna()
+        dwlr = dwlr.sort_values("sampling_date")
+        for _, row in dwlr.iterrows():
+            depth_val = parse_depth(row["approx_depth"])
+            if pd.notna(depth_val):
+                dwlr_data.append({
+                    "district": str(row["district"]),
+                    "date": row["sampling_date"].strftime("%Y-%m-%d"),
+                    "depth": round(float(depth_val), 2)
+                })
 
     if request.method == "POST":
         try:
@@ -1287,8 +1295,7 @@ def index():
         wqi=wqi,
         category=category,
         recommendations=recommendations,
-        dates=json.dumps(dates),
-        depths=json.dumps(depths),
+        dwlr_data=dwlr_data,
         districts=districts,
         error=error,
     )
