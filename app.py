@@ -1889,10 +1889,10 @@ def chatbot_query():
 
     def format_reply(text, follow_ups=None):
         intros = [
-            "Sure. ",
-            "Here is what I found. ",
+            "Sure! ",
+            "Here is what I found: ",
             "Great question. ",
-            "Based on your dataset, ",
+            "Based on the dataset, ",
             "",
         ]
         return jsonify(
@@ -1902,70 +1902,105 @@ def chatbot_query():
             }
         )
 
-    if "help" in message or "what can you do" in message or "commands" in message:
+    # Synonym lists for intent extraction
+    best_syns = ["best", "cleanest", "highest wqi", "good water", "excellent", "pure", "top quality"]
+    worst_syns = ["worst", "dirtiest", "lowest wqi", "bad water", "polluted", "critical", "unfit"]
+    safe_syns = ["safe", "drink", "drinking", "potable", "pure", "consumption"]
+    depth_syns = ["depth", "deep", "shallow", "level", "underground", "water table", "water level"]
+    summary_syns = ["summary", "overview", "stats", "statistics", "general", "total"]
+
+    # Extract mentioned districts
+    district_names = [str(d).strip() for d in summary["district"].dropna().unique().tolist()]
+    matched_districts = [d for d in district_names if d.lower() in message]
+
+    # Intent 1: Comparison of two districts (Triggered by 2 districts OR "compare/vs" with 1+ districts)
+    if len(matched_districts) >= 2 or (("compare" in message or "vs" in message) and len(matched_districts) >= 1):
+        if len(matched_districts) >= 2:
+            d1_name, d2_name = matched_districts[0], matched_districts[1]
+            d1 = summary[summary["district"] == d1_name].iloc[0]
+            d2 = summary[summary["district"] == d2_name].iloc[0]
+            better = d1_name if d1["wqi"] >= d2["wqi"] else d2_name
+            return format_reply(
+                f"Comparison result: **{d1_name}** has WQI **{d1['wqi']:.2f}** and depth **{d1['approx_depth']:.2f} m**; **{d2_name}** has WQI **{d2['wqi']:.2f}** and depth **{d2['approx_depth']:.2f} m**. Better quality district: **{better}**.",
+                [f"{better} details", "top 3 district"],
+            )
+        else:
+            return format_reply("I noticed you want to compare, but I need at least two district names. Example: *compare Pune vs Nashik*.")
+
+    # Intent 2: Help / Guide
+    if any(k in message for k in ["help", "what can you do", "commands", "guide", "how to use"]):
         return format_reply(
-            "I can answer groundwater questions like: best/worst district, average depth district, top 3 district, compare district A vs B, shallow/deep districts, best stations, and district-specific recommendations.",
-            ["summary", "compare district pune vs nashik", "best station"],
+            "I am your AI Groundwater Assistant! You can ask me questions like:\n"
+            "• *'Which district is the cleanest?'* (Best WQI)\n"
+            "• *'Compare Pune and Nashik'* (District Comparison)\n"
+            "• *'Is Pune water safe for drinking?'* (Safety check)\n"
+            "• *'Show me the shallowest water levels'* (Depth rank)\n"
+            "• *'What is WQI?'* (Glossary)",
+            ["summary", "compare Pune vs Nashik", "best station"],
         )
 
-    if "meaning of wqi" in message or "what is wqi" in message or "wqi meaning" in message:
+    # Intent 3: Definition of WQI
+    if "meaning of wqi" in message or "what is wqi" in message or "wqi meaning" in message or "wqi definition" in message:
         return format_reply(
-            "WQI means Water Quality Index. Higher values indicate better quality. Quick rule: >=80 Excellent, 60-79 Good, 40-59 Poor, <40 Unfit."
+            "**WQI** stands for **Water Quality Index**. It is a single number that expresses overall water quality. "
+            "Higher is better: **>=80** (Excellent), **60-79** (Good), **40-59** (Poor), **<40** (Unfit for use)."
         )
 
-    if "safe drinking" in message or "is water safe" in message or "safe water" in message:
+    # Intent 4: Drinking Water Safety
+    if any(s in message for s in safe_syns):
+        # If a specific district is mentioned
+        if len(matched_districts) == 1:
+            d_name = matched_districts[0]
+            row = summary[summary["district"] == d_name].iloc[0]
+            status = "safe for drinking" if row["wqi"] >= 60 else "NOT safe for drinking without prior treatment"
+            return format_reply(
+                f"Based on the water quality index of **{d_name}** (WQI: **{row['wqi']:.2f}**), the water is **{status}**.",
+                [f"{d_name} details", "best district"]
+            )
+        
         good = summary[summary["wqi"] >= 60].sort_values("wqi", ascending=False).head(5)
         if good.empty:
             return format_reply(
-                "No district is currently in Good/Excellent category in this dataset. Please treat water before drinking."
+                "No district is currently in the Good/Excellent category in this dataset. Please treat/boil water before drinking."
             )
-        names = ", ".join([f"{r['district']} ({r['wqi']:.2f})" for _, r in good.iterrows()])
+        names = ", ".join([f"**{r['district']}** (WQI: {r['wqi']:.2f})" for _, r in good.iterrows()])
         return format_reply(
             f"Relatively safer districts (WQI >= 60): {names}.",
             ["top 3 district", "worst district"],
         )
 
-    if "summary" in message or "overview" in message:
+    # Intent 5: Summary / Overview
+    if any(s in message for s in summary_syns):
         best = summary.sort_values("wqi", ascending=False).iloc[0]
         worst = summary.sort_values("wqi", ascending=True).iloc[0]
         avg_wqi = summary["wqi"].mean()
         avg_depth = summary["approx_depth"].mean()
         station_count = df["stn_name"].nunique() if "stn_name" in df.columns else 0
         return format_reply(
-            f"Overview: {len(summary)} districts, {station_count} stations, average WQI {avg_wqi:.2f}, average depth {avg_depth:.2f} m. Best district is {best['district']} ({best['wqi']:.2f}) and the most critical is {worst['district']} ({worst['wqi']:.2f}).",
+            f"Overview: **{len(summary)}** districts, **{station_count}** stations, average WQI **{avg_wqi:.2f}**, average depth **{avg_depth:.2f} m**. "
+            f"Best district: **{best['district']}** ({best['wqi']:.2f}). Most critical: **{worst['district']}** ({worst['wqi']:.2f}).",
             ["best district", "worst district", "average depth district"],
         )
 
-    if ("compare" in message or "vs" in message) and "district" in message:
-        district_names = [str(d).strip() for d in summary["district"].dropna().unique().tolist()]
-        matched = [d for d in district_names if d.lower() in message]
-        if len(matched) >= 2:
-            d1 = summary[summary["district"] == matched[0]].iloc[0]
-            d2 = summary[summary["district"] == matched[1]].iloc[0]
-            better = matched[0] if d1["wqi"] >= d2["wqi"] else matched[1]
-            return format_reply(
-                f"Comparison result: {matched[0]} has WQI {d1['wqi']:.2f} and depth {d1['approx_depth']:.2f} m; {matched[1]} has WQI {d2['wqi']:.2f} and depth {d2['approx_depth']:.2f} m. Better quality district: {better}.",
-                [f"{better} details", "top 3 district"],
-            )
-        return format_reply(
-            "I understood comparison intent, but I need two district names. Example: compare district Pune vs Nashik."
-        )
-
-    if "top 3" in message or "top three" in message:
+    # Intent 6: Top 3 / Best performers
+    if "top 3" in message or "top three" in message or "best 3" in message:
         top = summary.sort_values("wqi", ascending=False).head(3)
-        items = [f"{row['district']} ({row['wqi']:.2f})" for _, row in top.iterrows()]
+        items = [f"**{row['district']}** ({row['wqi']:.2f})" for _, row in top.iterrows()]
         return format_reply("Top 3 districts by WQI: " + ", ".join(items), ["worst district", "summary"])
 
+    # Intent 7: Shallowest / Lowest Depth
     if "lowest depth" in message or "shallow" in message:
         shallow = summary.sort_values("approx_depth", ascending=True).head(3)
-        items = [f"{row['district']} ({row['approx_depth']:.2f} m)" for _, row in shallow.iterrows()]
+        items = [f"**{row['district']}** ({row['approx_depth']:.2f} m)" for _, row in shallow.iterrows()]
         return format_reply("Shallowest groundwater depth districts: " + ", ".join(items))
 
+    # Intent 8: Deepest / Highest Depth
     if "highest depth" in message or "deep" in message:
         deep = summary.sort_values("approx_depth", ascending=False).head(3)
-        items = [f"{row['district']} ({row['approx_depth']:.2f} m)" for _, row in deep.iterrows()]
+        items = [f"**{row['district']}** ({row['approx_depth']:.2f} m)" for _, row in deep.iterrows()]
         return format_reply("Deepest groundwater depth districts: " + ", ".join(items))
 
+    # Intent 9: Best Station
     if "station" in message and ("best" in message or "top" in message):
         if {"district", "stn_name", "ph", "dissolved_o2", "bod", "nitrate_n"}.issubset(df.columns):
             station_df = df.copy()
@@ -1984,12 +2019,13 @@ def chatbot_query():
                 )
                 best_stations = station_group.sort_values("wqi", ascending=False).head(3)
                 items = [
-                    f"{row['stn_name']} ({row['district']}, WQI {row['wqi']:.2f})"
+                    f"**{row['stn_name']}** ({row['district']}, WQI: {row['wqi']:.2f})"
                     for _, row in best_stations.iterrows()
                 ]
                 return format_reply("Top stations by water quality: " + ", ".join(items))
 
-    if "river" in message or "water body" in message:
+    # Intent 10: River / Water Body
+    if "river" in message or "water body" in message or "lake" in message:
         if "water_body" in df.columns or "river_name" in df.columns or "river_body" in df.columns:
             col = "water_body" if "water_body" in df.columns else ("river_name" if "river_name" in df.columns else "river_body")
             top_bodies = (
@@ -1998,41 +2034,59 @@ def chatbot_query():
             if top_bodies:
                 return format_reply("Top tracked water bodies in dataset: " + ", ".join(top_bodies))
 
-    if "best district" in message:
+    # Intent 11: Best District
+    if any(b in message for b in best_syns):
         best = summary.sort_values("wqi", ascending=False).iloc[0]
         session["chat_last_district"] = str(best["district"])
         return format_reply(
-            f"Best district is {best['district']} with average WQI {best['wqi']:.2f} ({best['quality']}).",
+            f"The best district is **{best['district']}** with average WQI **{best['wqi']:.2f}** ({best['quality']}).",
             [f"{best['district']} details", "compare district"],
         )
 
-    if "worst district" in message:
+    # Intent 12: Worst District
+    if any(w in message for w in worst_syns):
         worst = summary.sort_values("wqi", ascending=True).iloc[0]
         session["chat_last_district"] = str(worst["district"])
         return format_reply(
-            f"Worst district is {worst['district']} with average WQI {worst['wqi']:.2f} ({worst['quality']}).",
+            f"The most critical/worst district is **{worst['district']}** with average WQI **{worst['wqi']:.2f}** ({worst['quality']}).",
             [f"{worst['district']} details", "safe drinking water"],
         )
 
-    if "average depth" in message and "district" in message:
-        avg_depth = summary["approx_depth"].mean()
-        return format_reply(f"Overall district average groundwater depth is {avg_depth:.2f} m.")
-
-    if ("its details" in message or "tell more" in message or "more details" in message) and session.get("chat_last_district"):
-        message = session.get("chat_last_district", "").lower()
-
-    for district_name in summary["district"].dropna().unique().tolist():
-        if str(district_name).lower() in message:
-            row = summary[summary["district"] == district_name].iloc[0]
-            suggestion = "Recommended for routine use." if row["wqi"] >= 60 else "Needs treatment before domestic use."
-            session["chat_last_district"] = str(district_name)
+    # Intent 13: Average Depth
+    if any(d in message for d in depth_syns):
+        # If specific district is mentioned
+        if len(matched_districts) == 1:
+            d_name = matched_districts[0]
+            row = summary[summary["district"] == d_name].iloc[0]
             return format_reply(
-                f"{district_name}: Avg depth {row['approx_depth']:.2f} m, Avg WQI {row['wqi']:.2f} ({row['quality']}). {suggestion}",
-                ["compare district", "safe drinking water"],
+                f"The average groundwater depth in **{d_name}** is **{row['approx_depth']:.2f} m**.",
+                [f"{d_name} details", "average depth district"]
             )
+        
+        avg_depth = summary["approx_depth"].mean()
+        return format_reply(f"Overall district average groundwater depth is **{avg_depth:.2f} m**.")
 
+    # Intent 14: Contextual follow-up ("tell more", "its details")
+    if ("its details" in message or "tell more" in message or "more details" in message) and session.get("chat_last_district"):
+        matched_districts = [session.get("chat_last_district", "")]
+
+    # Intent 15: Single District Lookup (matches Pune, Nashik, etc.)
+    if len(matched_districts) == 1:
+        district_name = matched_districts[0]
+        row = summary[summary["district"] == district_name].iloc[0]
+        suggestion = "Recommended for routine use." if row["wqi"] >= 60 else "Needs treatment before domestic use."
+        session["chat_last_district"] = str(district_name)
+        return format_reply(
+            f"**{district_name}**: Average depth **{row['approx_depth']:.2f} m**, average WQI **{row['wqi']:.2f}** ({row['quality']}). *{suggestion}*",
+            ["compare district", "safe drinking water"],
+        )
+
+    # Default fallback
     return format_reply(
-        "I did not fully understand that query. If you want, I can still help - try asking in natural style like 'Which district is best?' or 'Compare Pune and Nashik'.",
+        "I didn't quite catch that. Try asking in natural style, like:\n"
+        "• *'Which district is best?'*\n"
+        "• *'Is Pune water safe?'*\n"
+        "• *'Compare Pune and Nashik'*",
         ["summary", "best district", "help"],
     )
 

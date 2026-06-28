@@ -19,7 +19,7 @@ def create_db_indexes():
         
         conn.commit()
         conn.close()
-        print("✅ Optimized SQLite indexes created successfully!")
+        print("[OK] Optimized SQLite indexes created successfully!")
     except Exception as e:
         print("Error creating database indexes:", str(e))
 

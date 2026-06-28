@@ -45,12 +45,20 @@ def explain_prediction(model_name, best_model, historical_df, last_features_row)
 
     contributions = []
 
+    shap_model = best_model
+    if model_name == "Weighted Ensemble":
+        # Extract the Random Forest model from the ensemble for SHAP
+        for sub_m, weight in best_model.models_with_weights:
+            if hasattr(sub_m, "feature_importances_") and not hasattr(sub_m, "learning_rate"):
+                shap_model = sub_m
+                break
+
     # 1. SHAP values (if importable and model supports tree explainer)
-    if HAS_SHAP and model_name in ["Random Forest", "XGBoost"] and hasattr(best_model, "predict"):
+    if HAS_SHAP and (model_name in ["Random Forest", "XGBoost"] or model_name == "Weighted Ensemble") and hasattr(shap_model, "predict"):
         try:
             # Create subset training sample for background
             bg_data = historical_df[features].dropna().head(100).values
-            explainer = shap.TreeExplainer(best_model)
+            explainer = shap.TreeExplainer(shap_model)
             shap_values = explainer.shap_values(np.array([values]))
             
             # Unpack array
@@ -77,7 +85,12 @@ def explain_prediction(model_name, best_model, historical_df, last_features_row)
     if not contributions:
         # Calculate feature importances from model if available
         importances = {}
-        if hasattr(best_model, "feature_importances_"):
+        if model_name == "Weighted Ensemble":
+            for sub_m, weight in best_model.models_with_weights:
+                if hasattr(sub_m, "feature_importances_"):
+                    for f, imp in zip(features, sub_m.feature_importances_):
+                        importances[f] = importances.get(f, 0.0) + weight * float(imp)
+        elif hasattr(best_model, "feature_importances_"):
             importances = {f: float(imp) for f, imp in zip(features, best_model.feature_importances_)}
         elif hasattr(best_model, "coef_"):
             # Linear model coefficients

@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.model_selection import TimeSeriesSplit
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression, HuberRegressor
 from sklearn.neural_network import MLPRegressor
@@ -42,6 +43,22 @@ except ImportError:
     pass
 
 DATA_PATH = "groundwater_cleaned.csv"
+
+
+class WeightedEnsembleRegressor:
+    """
+    A custom ensemble regressor that combines predictions from multiple models
+    using pre-calculated weights based on their validation performance.
+    """
+    def __init__(self, models_with_weights):
+        # List of tuples: (model_instance, weight)
+        self.models_with_weights = models_with_weights
+
+    def predict(self, X):
+        predictions = np.zeros(len(X))
+        for model, weight in self.models_with_weights:
+            predictions += weight * model.predict(X)
+        return predictions
 
 
 def load_and_preprocess_data(district, station=None):
@@ -159,8 +176,12 @@ def evaluate_models(df_supervised, features, target):
             X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
             y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
             
+            # Compute time-decay weights (more weight on recent observations)
+            n_train = len(y_train)
+            sample_weights = np.exp(np.linspace(-0.3, 0, n_train))
+            
             rf = RandomForestRegressor(**params, random_state=42)
-            rf.fit(X_train, y_train)
+            rf.fit(X_train, y_train, sample_weight=sample_weights)
             preds = rf.predict(X_val)
             cv_maes.append(mean_absolute_error(y_val, preds))
             cv_rmses.append(mean_squared_error(y_val, preds) ** 0.5)
@@ -171,7 +192,10 @@ def evaluate_models(df_supervised, features, target):
             best_rf_model = RandomForestRegressor(**params, random_state=42)
             validation_rmses["Random Forest"] = float(np.mean(cv_rmses))
             
-    best_rf_model.fit(X, y)
+    # Fit final RF with time-decay weights
+    n_total = len(y)
+    total_weights = np.exp(np.linspace(-0.3, 0, n_total))
+    best_rf_model.fit(X, y, sample_weight=total_weights)
     model_candidates["Random Forest"] = best_rf_model
     validation_maes["Random Forest"] = best_rf_mae
     
@@ -187,12 +211,15 @@ def evaluate_models(df_supervised, features, target):
             X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
             y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
             
+            n_train = len(y_train)
+            sample_weights = np.exp(np.linspace(-0.3, 0, n_train))
+            
             if HAS_XGB:
                 inst = xgb_class(**params, random_state=42, objective="reg:squarederror")
             else:
                 inst = xgb_class(**params, random_state=42)
                 
-            inst.fit(X_train, y_train)
+            inst.fit(X_train, y_train, sample_weight=sample_weights)
             preds = inst.predict(X_val)
             cv_maes.append(mean_absolute_error(y_val, preds))
             cv_rmses.append(mean_squared_error(y_val, preds) ** 0.5)
@@ -203,7 +230,8 @@ def evaluate_models(df_supervised, features, target):
             best_xgb_model = xgb_class(**params, random_state=42)
             validation_rmses["XGBoost"] = float(np.mean(cv_rmses))
             
-    best_xgb_model.fit(X, y)
+    # Fit final XGB with time-decay weights
+    best_xgb_model.fit(X, y, sample_weight=total_weights)
     model_candidates["XGBoost"] = best_xgb_model
     validation_maes["XGBoost"] = best_xgb_mae
 
@@ -263,16 +291,60 @@ def evaluate_models(df_supervised, features, target):
     validation_maes["LSTM"] = mean_absolute_error(y_val, mlp_lstm_preds)
     validation_rmses["LSTM"] = mean_squared_error(y_val, mlp_lstm_preds) ** 0.5
     
+    # 5. Evaluate Weighted Ensemble of Random Forest and XGBoost
+    try:
+        w_rf = 1.0 / (validation_maes["Random Forest"] + 1e-6)
+        w_xgb = 1.0 / (validation_maes["XGBoost"] + 1e-6)
+        sum_w = w_rf + w_xgb
+        weight_rf = w_rf / sum_w
+        weight_xgb = w_xgb / sum_w
+        
+        ensemble_model = WeightedEnsembleRegressor([
+            (model_candidates["Random Forest"], weight_rf),
+            (model_candidates["XGBoost"], weight_xgb)
+        ])
+        
+        # Cross-validate the ensemble
+        cv_maes = []
+        cv_rmses = []
+        for train_idx, val_idx in tscv.split(X):
+            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+            
+            rf_cv = RandomForestRegressor(**best_rf_model.get_params())
+            rf_cv.fit(X_train, y_train)
+            
+            xgb_cv = xgb_class(**best_xgb_model.get_params())
+            xgb_cv.fit(X_train, y_train)
+            
+            ens_cv = WeightedEnsembleRegressor([
+                (rf_cv, weight_rf),
+                (xgb_cv, weight_xgb)
+            ])
+            preds = ens_cv.predict(X_val)
+            cv_maes.append(mean_absolute_error(y_val, preds))
+            cv_rmses.append(mean_squared_error(y_val, preds) ** 0.5)
+            
+        validation_maes["Weighted Ensemble"] = float(np.mean(cv_maes))
+        validation_rmses["Weighted Ensemble"] = float(np.mean(cv_rmses))
+        model_candidates["Weighted Ensemble"] = ensemble_model
+    except Exception:
+        pass
+
     # Auto-Select Best model
     best_name = min(validation_maes, key=validation_maes.get)
     best_model = model_candidates[best_name]
     best_mae = validation_maes[best_name]
     best_rmse = validation_rmses.get(best_name, 0.15)
     
-    # Ensure final fit for sklearn models
     if best_name in ["Random Forest", "XGBoost", "LSTM"]:
         try:
-            best_model.fit(X, y)
+            if best_name in ["Random Forest", "XGBoost"]:
+                n_total = len(y)
+                total_weights = np.exp(np.linspace(-0.3, 0, n_total))
+                best_model.fit(X, y, sample_weight=total_weights)
+            else:
+                best_model.fit(X, y)
         except Exception:
             pass
             
@@ -404,8 +476,6 @@ def generate_forecasts(district, station=None, horizons=["7d", "30d", "3m", "1y"
     current_date = last_date
     
     # Initial state queue for lagged values
-    # Features format matches features list
-    # e.g. depth_lag_1, depth_lag_2, depth_lag_3, rainfall_lag_1, rainfall_lag_2, rainfall_lag_3, ...
     lag_depths = list(df.tail(3)["depth"].values)
     lag_rains = list(df.tail(3)["rainfall"].values)
     lag_temps = list(df.tail(3)["temperature"].values)
@@ -423,62 +493,96 @@ def generate_forecasts(district, station=None, horizons=["7d", "30d", "3m", "1y"
     
     predictions_by_day = {}
     
-    for day in range(1, max_days + 1):
-        current_date += timedelta(days=1)
-        month = current_date.month
-        month_sin = np.sin(2 * np.pi * month / 12)
-        month_cos = np.cos(2 * np.pi * month / 12)
-        
-        # Build features input row
-        input_dict = {
-            "depth_lag_1": lag_depths[-1],
-            "depth_lag_2": lag_depths[-2],
-            "depth_lag_3": lag_depths[-3],
-            "rainfall_lag_1": lag_rains[-1],
-            "rainfall_lag_2": lag_rains[-2],
-            "rainfall_lag_3": lag_rains[-3],
-            "temperature_lag_1": lag_temps[-1],
-            "temperature_lag_2": lag_temps[-2],
-            "temperature_lag_3": lag_temps[-3],
-            "humidity_lag_1": lag_hums[-1],
-            "humidity_lag_2": lag_hums[-2],
-            "humidity_lag_3": lag_hums[-3],
-            "month_sin": month_sin,
-            "month_cos": month_cos
-        }
-        
-        input_row = pd.DataFrame([input_dict])[features]
-        
-        # Predict next step depth
-        if model_name in ["LSTM", "GRU"] and HAS_TF and not isinstance(best_model, MLPRegressor):
-            input_reshaped = np.reshape(input_row.values, (1, 1, input_row.shape[1]))
-            pred_depth = float(best_model.predict(input_reshaped)[0][0])
-        else:
-            pred_depth = float(best_model.predict(input_row)[0])
+    # 1. ARIMA native forecasting
+    if model_name == "ARIMA" and HAS_STATSMODELS and not isinstance(best_model, HuberRegressor):
+        try:
+            arima_forecast = best_model.forecast(steps=max_days)
+            temp_date = last_date
+            for day in range(1, max_days + 1):
+                temp_date += timedelta(days=1)
+                pred_depth = float(arima_forecast[day - 1])
+                if station_fell_back:
+                    pred_depth += station_bias
+                pred_depth = max(0.1, pred_depth)
+                predictions_by_day[day] = (temp_date, pred_depth)
+        except Exception:
+            pass
+
+    # 2. Prophet native forecasting
+    elif model_name == "Prophet" and HAS_PROPHET and not isinstance(best_model, LinearRegression):
+        try:
+            future = best_model.make_future_dataframe(periods=max_days)
+            forecast = best_model.predict(future)
+            future_forecast = forecast.tail(max_days)
+            temp_date = last_date
+            for day, (_, row_f) in enumerate(future_forecast.iterrows(), 1):
+                temp_date += timedelta(days=1)
+                pred_depth = float(row_f["yhat"])
+                if station_fell_back:
+                    pred_depth += station_bias
+                pred_depth = max(0.1, pred_depth)
+                predictions_by_day[day] = (temp_date, pred_depth)
+        except Exception:
+            pass
+
+    # 3. Supervised daily step-by-step forecasting
+    if not predictions_by_day:
+        for day in range(1, max_days + 1):
+            current_date += timedelta(days=1)
+            month = current_date.month
+            month_sin = np.sin(2 * np.pi * month / 12)
+            month_cos = np.cos(2 * np.pi * month / 12)
             
-        # Add bias correction if we fell back to district
-        if station_fell_back:
-            pred_depth += station_bias
+            # Build features input row
+            input_dict = {
+                "depth_lag_1": lag_depths[-1],
+                "depth_lag_2": lag_depths[-2],
+                "depth_lag_3": lag_depths[-3],
+                "rainfall_lag_1": lag_rains[-1],
+                "rainfall_lag_2": lag_rains[-2],
+                "rainfall_lag_3": lag_rains[-3],
+                "temperature_lag_1": lag_temps[-1],
+                "temperature_lag_2": lag_temps[-2],
+                "temperature_lag_3": lag_temps[-3],
+                "humidity_lag_1": lag_hums[-1],
+                "humidity_lag_2": lag_hums[-2],
+                "humidity_lag_3": lag_hums[-3],
+                "month_sin": month_sin,
+                "month_cos": month_cos
+            }
             
-        # Ensure depth is physically bounded
-        pred_depth = max(0.1, pred_depth)
-        predictions_by_day[day] = (current_date, pred_depth)
-        
-        # Shift lags queue
-        lag_depths.append(pred_depth)
-        lag_depths.pop(0)
-        
-        # Simulate simple future weather patterns (retaining mean + small white noise)
-        simulated_rain = max(0.0, mean_rainfall + np.random.normal(0, 1.0))
-        simulated_temp = mean_temp + np.random.normal(0, 0.5)
-        simulated_hum = max(0.0, min(100.0, mean_humidity + np.random.normal(0, 2.0)))
-        
-        lag_rains.append(simulated_rain)
-        lag_rains.pop(0)
-        lag_temps.append(simulated_temp)
-        lag_temps.pop(0)
-        lag_hums.append(simulated_hum)
-        lag_hums.pop(0)
+            input_row = pd.DataFrame([input_dict])[features]
+            
+            # Predict next step depth
+            if model_name in ["LSTM", "GRU"] and HAS_TF and not isinstance(best_model, MLPRegressor):
+                input_reshaped = np.reshape(input_row.values, (1, 1, input_row.shape[1]))
+                pred_depth = float(best_model.predict(input_reshaped)[0][0])
+            else:
+                pred_depth = float(best_model.predict(input_row)[0])
+                
+            # Add bias correction if we fell back to district
+            if station_fell_back:
+                pred_depth += station_bias
+                
+            # Ensure depth is physically bounded
+            pred_depth = max(0.1, pred_depth)
+            predictions_by_day[day] = (current_date, pred_depth)
+            
+            # Shift lags queue
+            lag_depths.append(pred_depth)
+            lag_depths.pop(0)
+            
+            # Simulate simple future weather patterns (retaining mean + small white noise)
+            simulated_rain = max(0.0, mean_rainfall + np.random.normal(0, 1.0))
+            simulated_temp = mean_temp + np.random.normal(0, 0.5)
+            simulated_hum = max(0.0, min(100.0, mean_humidity + np.random.normal(0, 2.0)))
+            
+            lag_rains.append(simulated_rain)
+            lag_rains.pop(0)
+            lag_temps.append(simulated_temp)
+            lag_temps.pop(0)
+            lag_hums.append(simulated_hum)
+            lag_hums.pop(0)
 
     # Compile predictions at designated horizons
     results = []

@@ -1,0 +1,72 @@
+/* static/forecast_dashboard.css */
+
+body {
+    background-color: #070b19 !important;
+    color: #f8fafc !important;
+    font-family: 'Poppins', sans-serif;
+    background-image: 
+        radial-gradient(rgba(0, 242, 254, 0.08) 1px, transparent 0),
+        radial-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 0);
+    background-size: 40px 40px;
+    background-position: 0 0, 20px 20px;
+}
+
+/* Premium scrollbar customizer */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #070b19;
+}
+::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+}
+
+/* Floating dynamic glow blobs */
+.glow-orb {
+    position: fixed;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    z-index: -2;
+    filter: blur(120px);
+    pointer-events: none;
+    opacity: 0.35;
+}
+.orb-1 {
+    background: radial-gradient(circle, #00f2fe, #4facfe, transparent 70%);
+    top: -10%;
+    left: -10%;
+    animation: floatOrb1 20s infinite alternate ease-in-out;
+}
+.orb-2 {
+    background: radial-gradient(circle, #00f5a0, #00d9ff, transparent 70%);
+    bottom: -10%;
+    right: -10%;
+    animation: floatOrb2 18s infinite alternate ease-in-out;
+}
+.orb-3 {
+    background: radial-gradient(circle, #ff007f, #7f00ff, transparent 70%);
+    top: 40%;
+    left: 50%;
+    width: 400px;
+    height: 400px;
+    opacity: 0.15;
+    animation: floatOrb3 22s infinite alternate ease-in-out;
+}
+@keyframes floatOrb1 {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(80px, 60px) scale(1.1); }
+}
+@keyframes floatOrb2 {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(-80px, -60px) scale(1.15); }
+}
+@keyframes floatOrb3 {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(50px, -80px) scale(1.05); }
+}

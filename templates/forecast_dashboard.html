@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groundwater Level Forecasting & Interpretability</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyberDark: '#070b19',
+                        cyberCard: 'rgba(13, 21, 39, 0.5)',
+                        cyberCyan: '#00f2fe',
+                        cyberBlue: '#4facfe',
+                        cyberGreen: '#00f5a0'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Bootstrap 5 CSS (Required for navbar) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/forecast_dashboard.css">
+</head>
+<body class="bg-cyberDark text-slate-100 min-h-screen pt-24 pb-12">
+    {% include "navbar.html" %}
+
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+
+    <div class="container mx-auto px-4">
+        <!-- HEADER -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold tracking-tight text-white mb-3">
+                AI Powered <span class="bg-gradient-to-r from-cyberCyan to-cyberBlue bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(0,242,254,0.3)]">Groundwater Forecasting</span>
+            </h1>
+            <p class="text-slate-400 max-w-2xl mx-auto text-sm">
+                Forecast future water tables across multiple horizons (7 days to 1 year) and inspect feature importances with transparent machine learning explainability models.
+            </p>
+        </div>
+
+        <!-- QUICK PRESENTER GUIDE -->
+        <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-5 shadow-2xl mb-8 transition hover:border-cyberCyan/20">
+            <div class="flex items-center gap-3 mb-3">
+                <i class="fa-solid fa-graduation-cap text-cyberCyan text-lg"></i>
+                <h5 class="text-md font-bold text-white mb-0">Project Quick Explainer (For Presentations)</h5>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-400">
+                <div class="bg-slate-900/30 p-3 rounded-xl border border-white/5">
+                    <span class="font-bold text-white block mb-1">1. What is the Input?</span>
+                    The model uses past groundwater levels and blends them with local weather factors (rainfall, temperature, and humidity) to find seasonal patterns.
+                </div>
+                <div class="bg-slate-900/30 p-3 rounded-xl border border-white/5">
+                    <span class="font-bold text-white block mb-1">2. How does the AI train?</span>
+                    It automatically trains multiple AI models (like Random Forest and XGBoost) and picks the one with the lowest prediction error.
+                </div>
+                <div class="bg-slate-900/30 p-3 rounded-xl border border-white/5">
+                    <span class="font-bold text-white block mb-1">3. What is the Output?</span>
+                    It forecasts water levels up to 1 year in advance and uses SHAP values to explain which factors (like rainfall or heat) caused the change.
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTROL BAR -->
+        <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl mb-8 transition hover:border-cyberCyan/20">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div class="md:col-span-2">
+                    <label class="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wider"><i class="fa-solid fa-location-dot text-cyberCyan mr-2"></i>Select District</label>
+                    <select id="districtSelect" aria-label="Select District" class="w-full bg-slate-900/60 text-white border border-cyberCyan/20 rounded-xl px-4 py-3 text-sm focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan focus:outline-none">
+                        <option value="">Select District</option>
+                        {% for d in districts %}
+                        <option value="{{ d }}">{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wider"><i class="fa-solid fa-house-chimney text-cyberCyan mr-2"></i>Station / Village</label>
+                    <select id="stationSelect" aria-label="Select Station" class="w-full bg-slate-900/60 text-white border border-cyberCyan/20 rounded-xl px-4 py-3 text-sm focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan focus:outline-none">
+                        <option value="">Select Station (Optional)</option>
+                    </select>
+                </div>
+                <div>
+                    <button id="runForecastBtn" class="w-full bg-gradient-to-r from-cyberCyan to-cyberBlue text-cyberDark font-bold py-3 px-6 rounded-xl hover:translate-y-[-2px] hover:shadow-[0_0_20px_rgba(0,242,254,0.4)] transition duration-300">
+                        <i class="fa-solid fa-brain mr-2"></i>Predict & Explain
+                    </button>
+                </div>
+            </div>
+            <div id="errorBanner" class="hidden alert bg-red-900/30 border border-red-500/50 text-red-200 text-sm p-4 rounded-xl mt-4"></div>
+        </div>
+
+        <!-- TOP METRICS GRID -->
+        <div id="metricsGrid" class="hidden grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            <!-- Current Depth -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-2xl p-4 shadow-xl flex flex-col justify-between hover:border-cyberCyan/20 transition duration-300">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Current Depth</span>
+                    <i class="fa-solid fa-droplet text-cyberCyan text-md animate-pulse"></i>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-bold text-white"><span id="metricCurrent">-</span> m</h3>
+                    <span class="text-[9px] text-slate-500">Last observed value</span>
+                </div>
+            </div>
+
+            <!-- Predicted Depth -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-2xl p-4 shadow-xl flex flex-col justify-between hover:border-cyberBlue/20 transition duration-300">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">1-Year Forecast</span>
+                    <i class="fa-solid fa-clock text-cyberBlue text-md"></i>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-bold text-white"><span id="metricPredicted">-</span> m</h3>
+                    <span class="text-[9px] text-slate-500">Estimated water table</span>
+                </div>
+            </div>
+
+            <!-- Best Model -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-2xl p-4 shadow-xl flex flex-col justify-between hover:border-purple-500/20 transition duration-300">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Best Model</span>
+                    <i class="fa-solid fa-microchip text-purple-400 text-md"></i>
+                </div>
+                <div>
+                    <h3 class="text-[15px] font-bold text-white truncate" id="metricModel">-</h3>
+                    <span class="text-[9px] text-slate-500">Lowest CV error</span>
+                </div>
+            </div>
+
+            <!-- Accuracy -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-2xl p-4 shadow-xl flex flex-col justify-between hover:border-cyberGreen/20 transition duration-300">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Accuracy (R²)</span>
+                    <i class="fa-solid fa-chart-line text-cyberGreen text-md"></i>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-bold text-white"><span id="metricAccuracy">-</span></h3>
+                    <span class="text-[9px] text-slate-500">Model fit score</span>
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-2xl p-4 shadow-xl flex flex-col justify-between hover:border-amber-500/20 transition duration-300 col-span-2 md:col-span-1">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Aquifer Status</span>
+                    <i class="fa-solid fa-shield-halved text-slate-400 text-md" id="metricStatusIcon"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold" id="metricStatus">-</h3>
+                    <span class="text-[9px] text-slate-500">Risk classification</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN LAYOUT (LOADING STATE) -->
+        <div id="loadingState" class="hidden text-center py-20">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyberCyan mb-4"></div>
+            <p class="text-slate-400">Loading dynamic time-series features and evaluating forecasting architectures...</p>
+        </div>
+
+        <!-- MAIN DASHBOARD DATA -->
+        <div id="dashboardContent" class="hidden space-y-8">
+            <!-- ALERTS NOTIFICATION BOARD -->
+            <div id="alertsContainer" class="hidden grid grid-cols-1 gap-3">
+                <!-- Alerts are dynamically injected here -->
+            </div>
+
+            <!-- FORECAST VISUAL TIMELINE -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-6">
+                    <h5 class="text-lg font-bold border-l-4 border-cyberCyan pl-3 text-white">
+                        <i class="fa-solid fa-chart-line text-cyberCyan mr-2"></i>Water Table Forecast Timeline
+                    </h5>
+                    <div class="flex gap-2">
+                        <button id="exportCsvBtn" class="bg-slate-800 border border-white/10 hover:border-cyberCyan/40 text-xs px-3 py-2 rounded-xl transition"><i class="fa-solid fa-file-csv text-green-400 mr-1"></i>Export CSV</button>
+                        <button id="exportPdfBtn" class="bg-slate-800 border border-white/10 hover:border-cyberCyan/40 text-xs px-3 py-2 rounded-xl transition"><i class="fa-solid fa-file-pdf text-red-400 mr-1"></i>Download PDF</button>
+                    </div>
+                </div>
+                <div class="relative w-full h-[360px]">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+
+            <!-- MODEL SELECTION DETAILS & METRICS -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Model details -->
+                <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl flex flex-col justify-between">
+                    <div>
+                        <h5 class="text-md font-bold border-l-4 border-cyberCyan pl-3 text-white mb-2">AI Model Performance</h5>
+                        <p class="text-[11px] text-slate-400 mb-4">Measures how well the AI matches the historical patterns.</p>
+                        <div class="space-y-4">
+                            <div>
+                                <span class="text-slate-400 text-xs uppercase block">Best Model Selected</span>
+                                <span id="lblModelName" class="text-xl font-bold text-cyberCyan">--</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 text-xs uppercase block">Performance Scores</span>
+                                <div class="grid grid-cols-2 gap-2 mt-2">
+                                    <div class="bg-slate-900/40 p-2 rounded-lg border border-white/5 text-center" title="Average Predict Error: How many meters off the model is on average. Lower is better.">
+                                        <span class="text-[10px] text-slate-400 uppercase block font-bold">MAE</span>
+                                        <span id="lblMAE" class="text-sm font-semibold text-white">--</span>
+                                        <span class="text-[8px] text-slate-500 block">Avg Error (m)</span>
+                                    </div>
+                                    <div class="bg-slate-900/40 p-2 rounded-lg border border-white/5 text-center" title="Large Error Penalty: Measures if the model made any extremely large errors. Lower is better.">
+                                        <span class="text-[10px] text-slate-400 uppercase block font-bold">RMSE</span>
+                                        <span id="lblRMSE" class="text-sm font-semibold text-white">--</span>
+                                        <span class="text-[8px] text-slate-500 block">Severe Error</span>
+                                    </div>
+                                    <div class="bg-slate-900/40 p-2 rounded-lg border border-white/5 text-center" title="Average Error Percentage: The average error as a percentage of the actual water depth. Lower is better.">
+                                        <span class="text-[10px] text-slate-400 uppercase block font-bold">MAPE</span>
+                                        <span id="lblMAPE" class="text-sm font-semibold text-cyberGreen">--</span>
+                                        <span class="text-[8px] text-slate-500 block">Avg Error (%)</span>
+                                    </div>
+                                    <div class="bg-slate-900/40 p-2 rounded-lg border border-white/5 text-center" title="Prediction Accuracy: How well the model fits the historical water pattern (1.00 is a perfect fit). Closer to 1 is better.">
+                                        <span class="text-[10px] text-slate-400 uppercase block font-bold">R² Score</span>
+                                        <span id="lblR2" class="text-sm font-semibold text-cyberCyan">--</span>
+                                        <span class="text-[8px] text-slate-500 block">Accuracy</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-white/5 text-xs text-slate-500">
+                        Evaluated all architectures (LSTM, XGBoost, Random Forest, ARIMA, Prophet) and auto-selected lowest cross-validation MAE.
+                    </div>
+                </div>
+
+                <!-- Explanation / SHAP summary -->
+                <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl md:col-span-2">
+                    <h5 class="text-md font-bold border-l-4 border-cyberCyan pl-3 text-white mb-2">Why did the AI make this prediction?</h5>
+                    <p class="text-[11px] text-slate-400 mb-4">🟢 Green factors help increase water levels (recharge). 🔴 Red factors cause water levels to drop (depletion).</p>
+                    <div id="shapSummaryContainer" class="space-y-2 text-sm text-slate-300">
+                        <p class="text-slate-500">Select a district and run predictions to view SHAP factor outputs.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EXPLAINABILITY CHARTS -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl">
+                    <h5 class="text-md font-bold border-l-4 border-cyberCyan pl-3 text-white mb-2">Key Drivers of Today's Prediction</h5>
+                    <p class="text-[11px] text-slate-400 mb-4">Shows how much each factor pushes the water table up (green/negative impact) or down (red/positive impact).</p>
+                    <div class="relative w-full h-[280px]">
+                        <canvas id="shapChart"></canvas>
+                    </div>
+                </div>
+                <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl">
+                    <h5 class="text-md font-bold border-l-4 border-cyberCyan pl-3 text-white mb-2">Overall Feature Importance</h5>
+                    <p class="text-[11px] text-slate-400 mb-4">Shows which factors the AI relies on most across the entire historical dataset.</p>
+                    <div class="relative w-full h-[280px]">
+                        <canvas id="importanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FORECAST TABLE -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl overflow-hidden">
+                <h5 class="text-lg font-bold border-l-4 border-cyberCyan pl-3 text-white mb-4">Forecast Predictions Table</h5>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm border-collapse">
+                        <thead>
+                            <tr class="border-b border-white/10 text-slate-400 uppercase tracking-wider text-xs">
+                                <th class="py-3 px-4">Horizon</th>
+                                <th class="py-3 px-4">Forecast Date</th>
+                                <th class="py-3 px-4">Predicted Depth (m)</th>
+                                <th class="py-3 px-4">Confidence score</th>
+                                <th class="py-3 px-4">Prediction Model</th>
+                                <th class="py-3 px-4">Safety Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="forecastTableBody" class="divide-y divide-white/5">
+                            <!-- Rows injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="/static/forecast_dashboard.js"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Groundwater Level Forecasting & Interpretability</title>
+    <title> Future Prediction</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -24,7 +24,7 @@
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <!-- Google Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Bootstrap 5 CSS (Required for navbar) -->
@@ -32,61 +32,102 @@
     
     <style>
         body {
-            background-color: #070b19 !important;
+            background-color: #060a16 !important;
             color: #f8fafc !important;
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Outfit', sans-serif;
             background-image: 
-                radial-gradient(rgba(0, 242, 254, 0.08) 1px, transparent 0),
-                radial-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 0);
-            background-size: 40px 40px;
-            background-position: 0 0, 20px 20px;
+                radial-gradient(rgba(0, 242, 254, 0.07) 1.5px, transparent 0),
+                radial-gradient(rgba(0, 242, 254, 0.04) 1.5px, transparent 0);
+            background-size: 48px 48px;
+            background-position: 0 0, 24px 24px;
         }
 
         /* Premium scrollbar customizer */
         ::-webkit-scrollbar {
             width: 8px;
+            height: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #070b19;
+            background: #060a16;
         }
         ::-webkit-scrollbar-thumb {
-            background: #1e293b;
-            border-radius: 4px;
+            background: #152035;
+            border-radius: 6px;
+            border: 2px solid #060a16;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #334155;
+            background: #1e2e4a;
         }
 
         /* Floating dynamic glow blobs */
         .glow-orb {
             position: fixed;
-            width: 500px;
-            height: 500px;
+            width: 550px;
+            height: 550px;
             border-radius: 50%;
             z-index: -2;
-            filter: blur(120px);
+            filter: blur(140px);
             pointer-events: none;
-            opacity: 0.35;
+            opacity: 0.28;
         }
         .orb-1 {
             background: radial-gradient(circle, #00f2fe, #4facfe, transparent 70%);
-            top: -10%;
-            left: -10%;
-            animation: floatOrb1 20s infinite alternate ease-in-out;
+            top: -15%;
+            left: -15%;
+            animation: floatOrb1 25s infinite alternate ease-in-out;
         }
         .orb-2 {
             background: radial-gradient(circle, #00f5a0, #00d9ff, transparent 70%);
-            bottom: -10%;
-            right: -10%;
-            animation: floatOrb2 18s infinite alternate ease-in-out;
+            bottom: -15%;
+            right: -15%;
+            animation: floatOrb2 22s infinite alternate ease-in-out;
         }
+        .orb-3 {
+            background: radial-gradient(circle, #7f00ff, #ff007f, transparent 70%);
+            top: 30%;
+            right: 15%;
+            width: 400px;
+            height: 400px;
+            opacity: 0.12;
+            animation: floatOrb3 20s infinite alternate ease-in-out;
+        }
+
         @keyframes floatOrb1 {
             0% { transform: translate(0, 0) scale(1); }
-            100% { transform: translate(80px, 60px) scale(1.1); }
+            100% { transform: translate(120px, 80px) scale(1.1); }
         }
         @keyframes floatOrb2 {
             0% { transform: translate(0, 0) scale(1); }
-            100% { transform: translate(-80px, -60px) scale(1.15); }
+            100% { transform: translate(-120px, -80px) scale(1.15); }
+        }
+        @keyframes floatOrb3 {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-50px, 100px) scale(0.9); }
+        }
+
+        /* Glassmorphic cards with animated border hover effects */
+        .glass-card {
+            background: rgba(10, 18, 36, 0.45) !important;
+            border: 1px solid rgba(255, 255, 255, 0.04) !important;
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-card:hover {
+            border: 1px solid rgba(0, 242, 254, 0.25) !important;
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0, 242, 254, 0.05);
+        }
+
+        /* Shimmering pulse loading effect */
+        .shimmer {
+            background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+            background-size: 200% 100%;
+            animation: loading-shimmer 1.5s infinite linear;
+        }
+        @keyframes loading-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
     </style>
 </head>
@@ -95,15 +136,16 @@
 
     <div class="glow-orb orb-1"></div>
     <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
 
     <div class="container mx-auto px-4">
         <!-- HEADER -->
         <div class="text-center mb-10">
             <h1 class="text-4xl font-extrabold tracking-tight text-white mb-3">
-                AI Powered <span class="bg-gradient-to-r from-cyberCyan to-cyberBlue bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(0,242,254,0.3)]">Groundwater Forecasting</span>
+                AI Powered <span class="bg-gradient-to-r from-cyberCyan to-cyberBlue bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(0,242,254,0.3)]">Future Prediction</span>
             </h1>
             <p class="text-slate-400 max-w-2xl mx-auto text-sm">
-                Forecast future water tables across multiple horizons (7 days to 1 year) and inspect feature importances with transparent machine learning explainability models.
+                Predict future water tables across multiple horizons (7 days to 1 year) and inspect feature importances with transparent machine learning explainability models.
             </p>
         </div>
 
@@ -248,6 +290,33 @@
                     </table>
                 </div>
             </div>
+
+            <!-- MODEL SELECTION LEADERBOARD -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-6 shadow-2xl overflow-hidden">
+                <h5 class="text-lg font-bold border-l-4 border-cyberCyan pl-3 text-white mb-4">
+                    <i class="fa-solid fa-square-poll-horizontal text-cyberCyan mr-2"></i>Dynamic Model Sweep & Cross-Validation Leaderboard
+                </h5>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm border-collapse">
+                        <thead>
+                            <tr class="border-b border-white/10 text-slate-400 uppercase tracking-wider text-xs">
+                                <th class="py-3 px-4">Model Name</th>
+                                <th class="py-3 px-4">Tuned Hyperparameters</th>
+                                <th class="py-3 px-4 text-center">MAE (Validation)</th>
+                                <th class="py-3 px-4 text-center">RMSE (Validation)</th>
+                                <th class="py-3 px-4 text-center">MAPE (Validation)</th>
+                                <th class="py-3 px-4 text-center">R² Score (Validation)</th>
+                                <th class="py-3 px-4 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modelLeaderboardBody" class="divide-y divide-white/5">
+                            <tr>
+                                <td colspan="7" class="py-4 text-center text-slate-500">No leaderboard details available. Select a location and run prediction to generate.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -318,12 +387,26 @@
                 }
                 
                 // 2. Fetch explainer data
-                const explainRes = await fetch(`/feature-importance?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
-                const explainData = await explainRes.json();
+                let explainData = null;
+                try {
+                    const explainRes = await fetch(`/feature-importance?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
+                    if (explainRes.ok) {
+                        explainData = await explainRes.json();
+                    }
+                } catch (explainErr) {
+                    console.warn("Explainer fetch failed:", explainErr);
+                }
                 
                 // 3. Fetch alerts
-                const alertsRes = await fetch(`/alerts?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
-                const alertsData = await alertsRes.json();
+                let alertsData = null;
+                try {
+                    const alertsRes = await fetch(`/alerts?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
+                    if (alertsRes.ok) {
+                        alertsData = await alertsRes.json();
+                    }
+                } catch (alertsErr) {
+                    console.warn("Alerts fetch failed:", alertsErr);
+                }
 
                 // 4. Fetch dynamic tuning performance parameters
                 let perfData = null;
@@ -353,18 +436,35 @@
                 }
                 
                 // Render Alerts
-                renderAlerts(alertsData.alerts);
+                if (alertsData && alertsData.alerts) {
+                    renderAlerts(alertsData.alerts);
+                } else {
+                    renderAlerts([]);
+                }
+                
+                // Render Timeline Chart
+                renderTimelineChart(forecastData);
                 
                 // Render Explanations Summaries
-                renderExplainerSummary(explainData.explanation);
-                
-                // Render Charts
-                renderTimelineChart(forecastData);
-                renderShapChart(explainData.explanation);
-                renderImportanceChart(explainData.explanation);
+                if (explainData && explainData.explanation) {
+                    renderExplainerSummary(explainData.explanation);
+                    renderShapChart(explainData.explanation);
+                    renderImportanceChart(explainData.explanation);
+                } else {
+                    renderExplainerSummary(null);
+                    if (shapChart) shapChart.destroy();
+                    if (importanceChart) importanceChart.destroy();
+                }
                 
                 // Render Table
                 renderForecastTable(forecastData);
+                
+                // Render Model Sweep Leaderboard
+                if (perfData && perfData.all_models_cv) {
+                    renderLeaderboardTable(perfData.all_models_cv, perfData.best_model_name);
+                } else {
+                    renderLeaderboardTable(null, null);
+                }
                 
                 // Show dashboard
                 document.getElementById('loadingState').classList.add('hidden');
@@ -651,6 +751,44 @@
                     <td class="py-3 px-4">${Math.round(f.confidence_score * 100)}%</td>
                     <td class="py-3 px-4 text-slate-400">${f.model_used}</td>
                     <td class="py-3 px-4">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 7. Render Model Leaderboard Table
+        function renderLeaderboardTable(allModels, bestModelName) {
+            const tbody = document.getElementById('modelLeaderboardBody');
+            tbody.innerHTML = "";
+            
+            if (!allModels) {
+                tbody.innerHTML = '<tr><td colspan="7" class="py-4 text-center text-slate-500">No leaderboard details available.</td></tr>';
+                return;
+            }
+            
+            Object.keys(allModels).forEach(name => {
+                const metrics = allModels[name];
+                const isBest = (name === bestModelName);
+                const tr = document.createElement('tr');
+                
+                if (isBest) {
+                    tr.className = "bg-cyberCyan/10 border-l-4 border-cyberCyan transition hover:bg-cyberCyan/15";
+                } else {
+                    tr.className = "transition hover:bg-white/[0.02] border-b border-white/5";
+                }
+                
+                const paramStr = metrics.params ? Object.keys(metrics.params).map(k => `${k}=${metrics.params[k]}`).join(', ') : 'Default parameters';
+                
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-bold ${isBest ? 'text-cyberCyan' : 'text-white'}">${name}</td>
+                    <td class="py-3 px-4 text-slate-400 text-xs">${paramStr}</td>
+                    <td class="py-3 px-4 text-center font-semibold">${Number(metrics.mae).toFixed(4)}</td>
+                    <td class="py-3 px-4 text-center text-slate-300">${Number(metrics.rmse).toFixed(4)}</td>
+                    <td class="py-3 px-4 text-center text-slate-300">${metrics.mape ? Number(metrics.mape).toFixed(2) + "%" : "--"}</td>
+                    <td class="py-3 px-4 text-center font-semibold ${metrics.r2 > 0 ? 'text-cyberGreen' : 'text-red-400'}">${metrics.r2 ? Number(metrics.r2).toFixed(4) : "--"}</td>
+                    <td class="py-3 px-4 text-center">
+                        ${isBest ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyberCyan/20 text-cyberCyan border border-cyberCyan/30"><i class="fa-solid fa-crown mr-1"></i>Best Model</span>' : '<span class="text-slate-500 text-xs">-</span>'}
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });

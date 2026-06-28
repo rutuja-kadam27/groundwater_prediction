@@ -1,0 +1,12 @@
+Flask
+pandas
+numpy
+joblib
+matplotlib
+reportlab
+scikit-learn
+gunicorn
+xgboost
+plotly
+pymysql
+

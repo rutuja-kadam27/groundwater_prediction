@@ -51,16 +51,11 @@ def save_prediction_to_db(district, station, predicted_depth_m, horizon, model_u
 
 @forecast_bp.route("/forecast-dashboard")
 def forecast_dashboard():
-    """
-    Renders the Forecast Dashboard HTML page.
-    Requires user login.
-    """
     if "user_id" not in session:
         return redirect("/login")
-        
     from app import df
     districts = sorted(df["district"].dropna().unique()) if not df.empty and "district" in df.columns else []
-    return render_template("forecast.html", districts=districts)
+    return render_template("forecast_dashboard.html", districts=districts)
 
 
 @forecast_bp.route("/predict", methods=["GET", "POST"])
@@ -130,6 +125,12 @@ def get_forecast_details():
             return jsonify({"error": "District parameter is required."}), 400
 
         df_hist = load_and_preprocess_data(district, station)
+        # Fallback to district-wide historical data if station-specific data is empty or too small
+        if station and (df_hist.empty or len(df_hist) < 5):
+            df_district = load_and_preprocess_data(district, station=None)
+            if not df_district.empty:
+                df_hist = df_district
+
         if df_hist.empty:
             return jsonify({"error": f"No historical records found for district {district}"}), 400
 
@@ -172,6 +173,12 @@ def get_feature_importance():
             return jsonify({"error": "District parameter is required."}), 400
 
         df_hist = load_and_preprocess_data(district, station)
+        # Fallback to district-wide historical data if station-specific data is empty or too small
+        if station and (df_hist.empty or len(df_hist) < 5):
+            df_district = load_and_preprocess_data(district, station=None)
+            if not df_district.empty:
+                df_hist = df_district
+
         if df_hist.empty or len(df_hist) < 2:
             return jsonify({"error": "Insufficient historical data."}), 400
 

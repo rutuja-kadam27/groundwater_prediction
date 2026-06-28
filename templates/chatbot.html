@@ -1,315 +1,325 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ground Water Assistant Chatbot</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyberDark: '#070b19',
+                        cyberCard: 'rgba(13, 21, 39, 0.65)',
+                        cyberCyan: '#00f2fe',
+                        cyberBlue: '#4facfe',
+                        cyberGreen: '#00f5a0',
+                        cyberPurple: '#7f00ff'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS (Required for navbar) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background-color: #070b19 !important;
+            color: #f8fafc !important;
+            font-family: 'Poppins', sans-serif;
+            background-image: 
+                radial-gradient(rgba(0, 242, 254, 0.08) 1px, transparent 0),
+                radial-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 0);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
 
-<title>Water Assistant Chatbot</title>
+        /* Scrollbar customizer */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(13, 21, 39, 0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
 
-<!-- Bootstrap Required for Previous Navbar -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-<style>
-body{
-    margin:0;
-    font-family:Arial,sans-serif;
-    background:#f4f8ff;
-    color:#1f2d3d;
-
-    /* Important for fixed navbar */
-    padding-top:90px;
-}
-
-.wrap{
-    max-width:980px;
-    margin:20px auto;
-    padding:0 16px;
-}
-
-.page-title{
-    margin-bottom:18px;
-    font-weight:700;
-    color:#203a43;
-}
-
-.grid{
-    display:grid;
-    grid-template-columns:1fr 2fr;
-    gap:14px;
-}
-
-.card{
-    background:#fff;
-    border-radius:12px;
-    box-shadow:0 6px 18px rgba(0,0,0,0.08);
-    padding:14px;
-}
-
-.help-list p{
-    margin:8px 0;
-    font-size:14px;
-}
-
-.quick-btns button{
-    margin:4px 6px 4px 0;
-    padding:8px 10px;
-    border:1px solid #cfd8e3;
-    border-radius:8px;
-    background:#eef4ff;
-    cursor:pointer;
-}
-
-.quick-btns button:hover{
-    background:#dbeafe;
-}
-
-.chat-box{
-    height:420px;
-    overflow-y:auto;
-    border:1px solid #e2e8f0;
-    border-radius:8px;
-    padding:10px;
-    background:#f8fbff;
-    margin-bottom:10px;
-}
-
-.msg{
-    margin:8px 0;
-    padding:8px 10px;
-    border-radius:8px;
-    max-width:92%;
-    font-size:14px;
-    line-height:1.4;
-}
-
-.user{
-    margin-left:auto;
-    background:#dbeafe;
-}
-
-.bot{
-    background:#eef2ff;
-}
-
-.chat-row{
-    display:flex;
-    gap:8px;
-}
-
-.chat-row input{
-    flex:1;
-    padding:10px;
-    border:1px solid #cbd5e1;
-    border-radius:8px;
-}
-
-.chat-row button{
-    padding:10px 14px;
-    border:none;
-    border-radius:8px;
-    background:#2563eb;
-    color:white;
-    cursor:pointer;
-}
-
-.chat-row button:hover{
-    background:#1d4ed8;
-}
-
-.typing{
-    font-style:italic;
-    color:#5b6b82;
-    margin:6px 0;
-}
-
-.suggestions{
-    margin-top:8px;
-}
-
-.suggestions button{
-    margin:4px 6px 0 0;
-    padding:6px 10px;
-    border-radius:12px;
-    border:1px solid #d2dcec;
-    background:#f1f6ff;
-    font-size:12px;
-    cursor:pointer;
-}
-
-@media(max-width:900px){
-    .grid{
-        grid-template-columns:1fr;
-    }
-}
-</style>
+        /* Floating dynamic glow blobs */
+        .glow-orb {
+            position: fixed;
+            width: 450px;
+            height: 450px;
+            border-radius: 50%;
+            z-index: -2;
+            filter: blur(130px);
+            pointer-events: none;
+            opacity: 0.25;
+        }
+        .orb-1 {
+            background: radial-gradient(circle, #00f2fe, #4facfe, transparent 70%);
+            top: -10%;
+            left: -10%;
+            animation: floatOrb1 20s infinite alternate ease-in-out;
+        }
+        .orb-2 {
+            background: radial-gradient(circle, #ff007f, #7f00ff, transparent 70%);
+            bottom: -10%;
+            right: -10%;
+            animation: floatOrb2 18s infinite alternate ease-in-out;
+        }
+        @keyframes floatOrb1 {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(60px, 40px) scale(1.1); }
+        }
+        @keyframes floatOrb2 {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-60px, -40px) scale(1.15); }
+        }
+    </style>
 </head>
+<body class="bg-cyberDark text-slate-100 min-h-screen pt-24 pb-12">
+    {% include "navbar.html" %}
 
-<body>
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
 
-<!-- SAME Previous Navbar -->
-{% include "navbar.html" %}
+    <div class="container mx-auto px-4 max-w-6xl">
+        <!-- HEADER -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold tracking-tight text-white mb-2">
+                AI <span class="bg-gradient-to-r from-cyberCyan to-cyberBlue bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(0,242,254,0.3)]">Water Assistant Chatbot</span>
+            </h1>
+            <p class="text-slate-400 max-w-xl mx-auto text-xs">
+                Ask questions in natural language about water quality index (WQI), groundwater depth, safety classifications, and district comparisons.
+            </p>
+        </div>
 
-<div class="wrap">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            
+            <!-- LEFT PANEL: HELP & QUICK ACTIONS -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-5 shadow-2xl space-y-5 lg:col-span-1">
+                <div>
+                    <h5 class="text-sm font-bold text-white uppercase tracking-wider border-l-4 border-cyberCyan pl-2.5 mb-3">
+                        <i class="fa-solid fa-circle-question text-cyberCyan mr-1.5"></i>What can you ask?
+                    </h5>
+                    <ul class="space-y-2 text-xs text-slate-400">
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-angles-right text-cyberCyan mt-0.5 shrink-0"></i>
+                            <span><b>Overview:</b> Ask <i>"Give me a summary"</i></span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-angles-right text-cyberCyan mt-0.5 shrink-0"></i>
+                            <span><b>Performers:</b> Ask <i>"Which is the cleanest district?"</i></span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-angles-right text-cyberCyan mt-0.5 shrink-0"></i>
+                            <span><b>Comparison:</b> Ask <i>"Compare Pune vs Nashik"</i></span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-angles-right text-cyberCyan mt-0.5 shrink-0"></i>
+                            <span><b>Safety:</b> Ask <i>"Is water in Nashik safe for drinking?"</i></span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <i class="fa-solid fa-angles-right text-cyberCyan mt-0.5 shrink-0"></i>
+                            <span><b>Depth:</b> Ask <i>"Show me shallowest depth districts"</i></span>
+                        </li>
+                    </ul>
+                </div>
 
-<h2 class="page-title">💧 Water Assistant Chatbot</h2>
+                <div class="pt-4 border-t border-white/5">
+                    <h5 class="text-sm font-bold text-white uppercase tracking-wider border-l-4 border-cyberBlue pl-2.5 mb-3">
+                        <i class="fa-solid fa-bolt text-cyberBlue mr-1.5"></i>Quick Queries
+                    </h5>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="askQuick('summary')" class="bg-slate-900/60 hover:bg-cyberBlue hover:text-cyberDark border border-white/10 text-slate-300 text-[11px] py-2 px-3 rounded-xl transition duration-300">
+                            📊 Overview
+                        </button>
+                        <button onclick="askQuick('cleanest district')" class="bg-slate-900/60 hover:bg-cyberBlue hover:text-cyberDark border border-white/10 text-slate-300 text-[11px] py-2 px-3 rounded-xl transition duration-300">
+                            🏆 Cleanest District
+                        </button>
+                        <button onclick="askQuick('worst district')" class="bg-slate-900/60 hover:bg-cyberBlue hover:text-cyberDark border border-white/10 text-slate-300 text-[11px] py-2 px-3 rounded-xl transition duration-300">
+                            ⚠️ Critical District
+                        </button>
+                        <button onclick="askQuick('average depth')" class="bg-slate-900/60 hover:bg-cyberBlue hover:text-cyberDark border border-white/10 text-slate-300 text-[11px] py-2 px-3 rounded-xl transition duration-300">
+                            📉 Water Depth
+                        </button>
+                        <button onclick="askQuick('meaning of wqi')" class="bg-slate-900/60 hover:bg-cyberBlue hover:text-cyberDark border border-white/10 text-slate-300 text-[11px] py-2 px-3 rounded-xl transition duration-300">
+                            ℹ️ WQI Meaning
+                        </button>
+                        <button onclick="askQuick('safe drinking water')" class="bg-slate-900/60 hover:bg-cyberBlue hover:text-cyberDark border border-white/10 text-slate-300 text-[11px] py-2 px-3 rounded-xl transition duration-300">
+                            🚰 Safe Water
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-<div class="grid">
+            <!-- RIGHT PANEL: CHAT INTERFACE -->
+            <div class="glass-card bg-cyberCard border border-white/5 backdrop-blur-2xl rounded-3xl p-5 shadow-2xl lg:col-span-2 flex flex-col h-[520px] justify-between">
+                
+                <!-- Chat Messages Area -->
+                <div id="chatBox" class="flex-1 overflow-y-auto space-y-4 pr-2 mb-4">
+                    <!-- Bot Initial message -->
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyberCyan to-cyberBlue flex items-center justify-center text-cyberDark font-bold text-xs shrink-0 shadow-lg shadow-cyberCyan/20">
+                            AI
+                        </div>
+                        <div class="bg-slate-900/60 border border-white/5 text-slate-300 text-xs py-2.5 px-4 rounded-2xl max-w-[85%] leading-relaxed shadow-md">
+                            Hello! I am your AI Groundwater Assistant. I can help analyze water quality, depths, and statistics. Ask me anything or type <b class="text-cyberCyan">help</b> to see commands!
+                        </div>
+                    </div>
+                </div>
 
-<!-- Left Card -->
-<div class="card">
+                <!-- Chat Inputs & Suggestions -->
+                <div class="space-y-3 pt-3 border-t border-white/5">
+                    <!-- Suggestions Box -->
+                    <div id="suggestionsBox" class="flex flex-wrap gap-1.5">
+                        <!-- Dynamic suggestions will be injected here -->
+                    </div>
 
-<h3>Helping Chatbot</h3>
+                    <!-- Input Box -->
+                    <div class="flex gap-2">
+                        <input id="chatInput" type="text" placeholder="Type your groundwater query (e.g. Compare Pune vs Nashik)..." class="flex-1 bg-slate-900/80 text-white placeholder-slate-500 border border-white/10 rounded-2xl px-4 py-3 text-xs focus:border-cyberCyan focus:ring-1 focus:ring-cyberCyan focus:outline-none transition duration-300">
+                        <button id="sendBtn" class="bg-gradient-to-r from-cyberCyan to-cyberBlue hover:shadow-[0_0_15px_rgba(0,242,254,0.4)] text-cyberDark font-bold px-5 py-3 rounded-2xl transition duration-300 flex items-center justify-center text-xs">
+                            <i class="fa-solid fa-paper-plane mr-1.5"></i>Send
+                        </button>
+                    </div>
+                </div>
 
-<div class="help-list">
-<p><b>Ask about quality:</b> best district, worst district</p>
-<p><b>Ask about depth:</b> average depth district</p>
-<p><b>Get quick overview:</b> summary</p>
-<p><b>See top performers:</b> top 3 district</p>
-<p><b>Compare:</b> compare district Pune vs Nashik</p>
-<p><b>Depth ranking:</b> lowest depth / highest depth</p>
-<p><b>Stations:</b> best station</p>
-<p><b>Learning:</b> meaning of wqi, safe drinking water</p>
-<p><b>Water bodies:</b> top river / water body</p>
-<p><b>District details:</b> type district name</p>
-<p><b>Need help:</b> help</p>
-</div>
+            </div>
+            
+        </div>
+    </div>
 
-<div class="quick-btns">
-<button onclick="askQuick('summary')">Summary</button>
-<button onclick="askQuick('best district')">Best District</button>
-<button onclick="askQuick('worst district')">Worst District</button>
-<button onclick="askQuick('average depth district')">Average Depth</button>
-<button onclick="askQuick('top 3 district')">Top 3 District</button>
-<button onclick="askQuick('compare district pune vs nashik')">Compare</button>
-<button onclick="askQuick('meaning of wqi')">WQI Meaning</button>
-<button onclick="askQuick('safe drinking water')">Safe Drinking</button>
-</div>
+    <!-- Bootstrap JS Required for Navbar -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-</div>
+    <script>
+        function appendMessage(text, type) {
+            const box = document.getElementById("chatBox");
+            const div = document.createElement("div");
+            div.className = "flex items-start gap-3 animate-fade-in";
+            
+            // Format message layout based on sender
+            if (type === "user") {
+                div.classList.add("justify-end");
+                div.innerHTML = `
+                    <div class="bg-cyberBlue/10 border border-cyberBlue/20 text-slate-200 text-xs py-2.5 px-4 rounded-2xl max-w-[85%] leading-relaxed shadow-md">
+                        ${text}
+                    </div>
+                    <div class="w-8 h-8 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                        ME
+                    </div>
+                `;
+            } else {
+                div.innerHTML = `
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyberCyan to-cyberBlue flex items-center justify-center text-cyberDark font-bold text-xs shrink-0 shadow-lg shadow-cyberCyan/20">
+                        AI
+                    </div>
+                    <div class="bg-slate-900/60 border border-white/5 text-slate-300 text-xs py-2.5 px-4 rounded-2xl max-w-[85%] leading-relaxed shadow-md">
+                        ${text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyberCyan">$1</strong>')}
+                    </div>
+                `;
+            }
+            
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
 
-<!-- Right Card -->
-<div class="card">
+        function removeTyping() {
+            const x = document.getElementById("typingMsg");
+            if (x) x.remove();
+        }
 
-<div id="chatBox" class="chat-box">
-<div class="msg bot">
-Hello! I am your groundwater helping chatbot.
-Type <b>help</b> to see commands.
-</div>
-</div>
+        function showTyping() {
+            removeTyping();
 
-<div class="chat-row">
-<input id="chatInput" type="text" placeholder="Ask something about water quality...">
-<button id="sendBtn">Send</button>
-</div>
+            const box = document.getElementById("chatBox");
+            const div = document.createElement("div");
+            div.id = "typingMsg";
+            div.className = "flex items-center gap-3 text-xs text-slate-500 animate-pulse";
+            div.innerHTML = `
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyberCyan to-cyberBlue flex items-center justify-center text-cyberDark font-bold text-xs shrink-0 opacity-60">
+                    AI
+                </div>
+                <div class="italic">Thinking...</div>
+            `;
 
-</div>
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
 
-</div>
-</div>
+        function renderSuggestions(items) {
+            const wrap = document.getElementById("suggestionsBox");
+            wrap.innerHTML = "";
+            
+            if (!items || !items.length) return;
 
-<!-- Bootstrap JS Required for Navbar -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+            items.slice(0, 3).forEach(item => {
+                const btn = document.createElement("button");
+                btn.className = "bg-slate-950/40 hover:bg-cyberBlue/10 hover:border-cyberBlue/40 border border-white/5 text-slate-400 hover:text-cyberBlue text-[10px] py-1.5 px-3 rounded-full transition duration-300 cursor-pointer";
+                btn.textContent = "🔍 " + item;
+                btn.onclick = () => askQuick(item);
+                wrap.appendChild(btn);
+            });
+        }
 
-<script>
-function appendMessage(text,type){
-    const box = document.getElementById("chatBox");
-    const div = document.createElement("div");
-    div.className = "msg " + type;
-    div.innerHTML = text;
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-}
+        function askQuick(text) {
+            document.getElementById("chatInput").value = text;
+            sendChat();
+        }
 
-function removeTyping(){
-    const x = document.getElementById("typingMsg");
-    if(x) x.remove();
-}
+        function sendChat() {
+            const input = document.getElementById("chatInput");
+            const message = input.value.trim();
 
-function showTyping(){
-    removeTyping();
+            if (!message) return;
 
-    const box = document.getElementById("chatBox");
-    const div = document.createElement("div");
+            appendMessage(message, "user");
+            input.value = "";
 
-    div.id = "typingMsg";
-    div.className = "typing";
-    div.textContent = "Bot is thinking...";
+            showTyping();
 
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-}
+            fetch("/chatbot-query", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    message: message
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                removeTyping();
+                appendMessage(data.reply || "No response from chatbot.", "bot");
+                renderSuggestions(data.follow_ups || []);
+            })
+            .catch(() => {
+                removeTyping();
+                appendMessage("Could not reach chatbot service.", "bot");
+            });
+        }
 
-function renderSuggestions(items){
+        document.getElementById("sendBtn").addEventListener("click", sendChat);
 
-    const box = document.getElementById("chatBox");
-
-    const old = document.getElementById("suggestionsBox");
-    if(old) old.remove();
-
-    if(!items || !items.length) return;
-
-    const wrap = document.createElement("div");
-    wrap.id = "suggestionsBox";
-    wrap.className = "suggestions";
-
-    items.slice(0,4).forEach(item=>{
-        const btn = document.createElement("button");
-        btn.textContent = item;
-        btn.onclick = ()=>askQuick(item);
-        wrap.appendChild(btn);
-    });
-
-    box.appendChild(wrap);
-    box.scrollTop = box.scrollHeight;
-}
-
-function askQuick(text){
-    document.getElementById("chatInput").value = text;
-    sendChat();
-}
-
-function sendChat(){
-
-    const input = document.getElementById("chatInput");
-    const message = input.value.trim();
-
-    if(!message) return;
-
-    appendMessage(message,"user");
-    input.value = "";
-
-    showTyping();
-
-    fetch("/chatbot-query",{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-            message:message
-        })
-    })
-    .then(r=>r.json())
-    .then(data=>{
-        removeTyping();
-        appendMessage(data.reply || "No response from chatbot.","bot");
-        renderSuggestions(data.follow_ups || []);
-    })
-    .catch(()=>{
-        removeTyping();
-        appendMessage("Could not reach chatbot service.","bot");
-    });
-}
-
-document.getElementById("sendBtn").addEventListener("click",sendChat);
-
-document.getElementById("chatInput").addEventListener("keydown",function(e){
-    if(e.key==="Enter"){
-        e.preventDefault();
-        sendChat();
-    }
-});
-</script>
-
+        document.getElementById("chatInput").addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                sendChat();
+            }
+        });
+    </script>
 </body>
 </html>
