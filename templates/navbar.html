@@ -3,7 +3,7 @@
 <!-- FontAwesome Icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-<nav class="navbar navbar-expand-lg glass-navbar fixed-top">
+<nav class="navbar navbar-expand-lg navbar-dark glass-navbar fixed-top">
   <div class="container">
 
     <!-- Brand -->
@@ -114,6 +114,24 @@
     padding: 14px 0;
     transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
     z-index: 9999 !important;
+}
+
+/* Custom Mobile Toggler Button styling */
+.navbar-toggler {
+    border: 1px solid rgba(0, 242, 254, 0.3) !important;
+    padding: 6px 10px !important;
+    border-radius: 10px !important;
+    background: rgba(0, 242, 254, 0.05) !important;
+    transition: all 0.3s ease !important;
+}
+
+.navbar-toggler:focus {
+    box-shadow: 0 0 12px rgba(0, 242, 254, 0.5) !important;
+    outline: none !important;
+}
+
+.navbar-toggler-icon {
+    filter: invert(56%) sepia(87%) saturate(1915%) hue-rotate(142deg) brightness(101%) contrast(105%) !important; /* Cyber Cyan */
 }
 
 /* Brand Logo */
