@@ -31,7 +31,7 @@ class TestProjectAuditAndOptimization(unittest.TestCase):
         """
         unsafe_val = "Akola%;' -- <script>alert(1)</script>"
         sanitized = sanitize_input(unsafe_val)
-        self.assertEqual(sanitized, "Akola -- scriptalert1script")
+        self.assertEqual(sanitized, "Akola -- scriptalert(1)/script")
         
         # Check normal strings
         self.assertEqual(sanitize_input("Amravati-Station_1.2"), "Amravati-Station_1.2")

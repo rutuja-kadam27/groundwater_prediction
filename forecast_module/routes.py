@@ -15,8 +15,8 @@ def sanitize_input(val):
     """
     if val is None:
         return ""
-    # Retain alphanumeric, spaces, dots, hyphens, and underscores only
-    return re.sub(r"[^a-zA-Z0-9\s\.\-_]", "", str(val)).strip()
+    # Retain alphanumeric, spaces, dots, commas, slashes, brackets, hyphens, and underscores
+    return re.sub(r"[^a-zA-Z0-9\s\.\-_\,\/\\()\[\]]", "", str(val)).strip()
 
 
 def save_prediction_to_db(district, station, predicted_depth_m, horizon, model_used, confidence_score, feature_importance):

@@ -57,27 +57,38 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById('loadingState').classList.remove('hidden');
         
         try {
-            // 1. Fetch predictions history & forecast details
-            const forecastRes = await fetch(`/forecast?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
-            const forecastData = await forecastRes.json();
-            
-            if (!forecastRes.ok) {
-                throw new Error(forecastData.error || "Failed to generate forecasts.");
+            // Helper function to fetch and safely parse JSON
+            async function fetchJson(url) {
+                const response = await fetch(url);
+                const contentType = response.headers.get("content-type");
+                if (!response.ok) {
+                    if (contentType && contentType.includes("application/json")) {
+                        const errData = await response.json();
+                        throw new Error(errData.error || `Request failed with status ${response.status}`);
+                    }
+                    throw new Error(`Server returned error status ${response.status}. Please check logs.`);
+                }
+                if (!contentType || !contentType.includes("application/json")) {
+                    throw new Error("Server did not return a valid JSON response.");
+                }
+                return await response.json();
             }
+
+            // 1. Fetch predictions history & forecast details
+            const forecastData = await fetchJson(`/forecast?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
             
             // 2. Fetch explainer data
-            const explainRes = await fetch(`/feature-importance?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
-            const explainData = await explainRes.json();
+            const explainData = await fetchJson(`/feature-importance?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
             
             // 3. Fetch alerts
-            const alertsRes = await fetch(`/alerts?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
-            const alertsData = await alertsRes.json();
+            const alertsData = await fetchJson(`/alerts?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
 
             // 4. Fetch dynamic tuning performance parameters
             let perfData = null;
             try {
                 const perfRes = await fetch(`/api/model-performance?district=${encodeURIComponent(district)}&station=${encodeURIComponent(station)}`);
-                if (perfRes.ok) {
+                const perfContentType = perfRes.headers.get("content-type");
+                if (perfRes.ok && perfContentType && perfContentType.includes("application/json")) {
                     perfData = await perfRes.json();
                 }
             } catch (perfErr) {

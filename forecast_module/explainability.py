@@ -46,7 +46,7 @@ def explain_prediction(model_name, best_model, historical_df, last_features_row)
     contributions = []
 
     shap_model = best_model
-    if model_name == "Weighted Ensemble":
+    if model_name == "Weighted Ensemble" and best_model is not None:
         # Extract the Random Forest model from the ensemble for SHAP
         for sub_m, weight in best_model.models_with_weights:
             if hasattr(sub_m, "feature_importances_") and not hasattr(sub_m, "learning_rate"):
@@ -54,7 +54,7 @@ def explain_prediction(model_name, best_model, historical_df, last_features_row)
                 break
 
     # 1. SHAP values (if importable and model supports tree explainer)
-    if HAS_SHAP and (model_name in ["Random Forest", "XGBoost"] or model_name == "Weighted Ensemble") and hasattr(shap_model, "predict"):
+    if HAS_SHAP and shap_model is not None and (model_name in ["Random Forest", "XGBoost"] or model_name == "Weighted Ensemble") and hasattr(shap_model, "predict"):
         try:
             # Create subset training sample for background
             bg_data = historical_df[features].dropna().head(100).values
@@ -85,7 +85,7 @@ def explain_prediction(model_name, best_model, historical_df, last_features_row)
     if not contributions:
         # Calculate feature importances from model if available
         importances = {}
-        if model_name == "Weighted Ensemble":
+        if model_name == "Weighted Ensemble" and best_model is not None:
             for sub_m, weight in best_model.models_with_weights:
                 if hasattr(sub_m, "feature_importances_"):
                     for f, imp in zip(features, sub_m.feature_importances_):
