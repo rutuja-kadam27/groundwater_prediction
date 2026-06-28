@@ -595,17 +595,17 @@ def generate_forecasts(district, station=None, horizons=["7d", "30d", "3m", "1y"
         
         # Confidence score drops over time
         time_factor = (days ** 0.5) * 0.04
-        confidence = max(0.4, round(1.0 - (mae * 0.15) - time_factor, 2))
+        confidence = max(0.4, round(1.0 - (float(mae) * 0.15) - time_factor, 2))
         
         results.append({
             "horizon": label,
             "days": days,
             "date": date_obj.strftime("%Y-%m-%d"),
-            "predicted_depth_m": round(depth_val, 2),
-            "confidence_score": confidence,
+            "predicted_depth_m": float(round(depth_val, 2)),
+            "confidence_score": float(confidence),
             "model_used": model_name,
-            "mae": round(mae, 3),
-            "rmse": round(rmse, 3)
+            "mae": float(round(mae, 3)),
+            "rmse": float(round(rmse, 3))
         })
         
     hist_avg = df["depth"].mean()
@@ -615,10 +615,10 @@ def generate_forecasts(district, station=None, horizons=["7d", "30d", "3m", "1y"
     return {
         "success": True,
         "model_used": model_name,
-        "mae": mae,
-        "rmse": rmse,
+        "mae": float(mae),
+        "rmse": float(rmse),
         "predictions": results,
-        "historical_avg": hist_avg,
+        "historical_avg": float(hist_avg),
         "station_fell_back": station_fell_back,
-        "station_bias": station_bias
+        "station_bias": float(station_bias)
     }
